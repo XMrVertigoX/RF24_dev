@@ -21,11 +21,5 @@ clean:
 include $(OPENCM3_DIR)/mk/genlink-rules.mk
 include $(OPENCM3_DIR)/mk/gcc-rules.mk
 
-# download: $(BIN) | download.jlink
-#   JLinkExe -AutoConnect 1 -ExitOnError 1 -Device ATSAMD21G18 -IF SWD -Speed adaptive -CommandFile download.jlink
-
-# mo:
-#   curl -sSL https://git.io/get-mo -o $@ && chmod +x $@
-
-# download.jlink: download.jlink.mustache | mo
-#   BIN=$(BIN) ./mo $< > $@
+download: binary.bin
+	JLinkExe -AutoConnect 1 -ExitOnError 1 -Device $(DEVICE) -IF SWD -Speed auto -CommandFile download.jlink

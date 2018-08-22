@@ -1,0 +1,5 @@
+h
+r
+loadbin binary.bin,0
+g
+q
