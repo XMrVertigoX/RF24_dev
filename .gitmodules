@@ -1,3 +1,9 @@
 [submodule "lib/RF24"]
 	path = lib/RF24
 	url = git@github.com:XMrVertigoX/RF24.git
+[submodule "lib/libopencm3"]
+	path = lib/libopencm3
+	url = git@github.com:libopencm3/libopencm3.git
+[submodule "lib/libnrf24l01"]
+	path = lib/libnrf24l01
+	url = git@github.com:XMrVertigoX/libnrf24l01.git
