@@ -1,5 +1,5 @@
 h
-loadbin binary.bin, 0x0
+loadbin rf24_dev.bin, 0x0
 r
 g
 q
