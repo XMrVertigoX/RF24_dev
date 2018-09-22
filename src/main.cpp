@@ -1,29 +1,14 @@
+#include "support/gpio.hpp"
+#include "support/spi.hpp"
+
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/spi.h>
 #include <libopencm3/stm32/usart.h>
 
-#include <new>
+#include <cstring>
 
 // clang-format off
-
-#define LD3  GPIOE, GPIO9
-#define LD4  GPIOE, GPIO8
-#define LD5  GPIOE, GPIO10
-#define LD6  GPIOE, GPIO15
-#define LD7  GPIOE, GPIO11
-#define LD8  GPIOE, GPIO14
-#define LD9  GPIOE, GPIO12
-#define LD10 GPIOE, GPIO13
-
-#define LRED     LD3
-#define LBLUE    LD4
-#define LORANGE  LD5
-#define LGREEN2  LD6
-#define LGREEN   LD7
-#define LORANGE2 LD8
-#define LBLUE2   LD9
-#define LRED2    LD10
 
 #define GYR_CTRL_REG1          0x20
 #define GYR_CTRL_REG1_BW_SHIFT 4
@@ -54,7 +39,7 @@ static void spi_setup()
   /* Setup GPIOE3 pin for spi mode l3gd20 select. */
   gpio_mode_setup(GPIOE, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO3);
   /* Start with spi communication disabled */
-  gpio_set(GPIOE, GPIO3);
+  // cs.set();
 
   /* Setup GPIO pins for AF5 for SPI1 signals. */
   gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO5 | GPIO6 | GPIO7);
@@ -148,73 +133,95 @@ static void clock_setup()
 
 int main()
 {
+  uint8_t buffer[2];
   uint8_t temp;
   int16_t gyr_x;
+
   clock_setup();
   gpio_setup();
   usart_setup();
   spi_setup();
 
-  gpio_clear(GPIOE, GPIO3);
-  spi_send8(SPI1, GYR_CTRL_REG1);
-  spi_read8(SPI1);
-  spi_send8(
-      SPI1,
-      GYR_CTRL_REG1_PD |
-          GYR_CTRL_REG1_XEN |
-          GYR_CTRL_REG1_YEN |
-          GYR_CTRL_REG1_ZEN |
-          (3 << GYR_CTRL_REG1_BW_SHIFT));
-  spi_read8(SPI1);
-  gpio_set(GPIOE, GPIO3);
+  Gpio cs(GPIOE, GPIO3);
+  Spi spi(SPI1);
 
-  gpio_clear(GPIOE, GPIO3);
-  spi_send8(SPI1, GYR_CTRL_REG4);
-  spi_read8(SPI1);
-  spi_send8(SPI1, (1 << GYR_CTRL_REG4_FS_SHIFT));
-  spi_read8(SPI1);
-  gpio_set(GPIOE, GPIO3);
+  cs.set();
+
+  buffer[0] = GYR_CTRL_REG1;
+  buffer[1] = {
+      GYR_CTRL_REG1_PD |
+      GYR_CTRL_REG1_XEN |
+      GYR_CTRL_REG1_YEN |
+      GYR_CTRL_REG1_ZEN |
+      (3 << GYR_CTRL_REG1_BW_SHIFT)};
+  cs.clear();
+  spi.transmit_receive(buffer, buffer, 2);
+  cs.set();
+
+  buffer[0] = GYR_CTRL_REG4;
+  buffer[1] = (1 << GYR_CTRL_REG4_FS_SHIFT);
+  cs.clear();
+  spi.transmit_receive(buffer, buffer, 2);
+  cs.set();
+
+  Gpio LD3(GPIOE, GPIO9);
+  Gpio LD4(GPIOE, GPIO8);
+  Gpio LD5(GPIOE, GPIO10);
+  Gpio LD6(GPIOE, GPIO15);
+  Gpio LD7(GPIOE, GPIO11);
+  Gpio LD8(GPIOE, GPIO14);
+  Gpio LD9(GPIOE, GPIO12);
+  Gpio LD10(GPIOE, GPIO13);
+
+  LD3.set();
+  // LD4.set();
+  // LD5.set();
+  LD6.set();
+  LD7.set();
+  // LD8.set();
+  // LD9.set();
+  LD10.set();
+
+  // Gpio rf24_irq(EXT1_PIN_9);
+  // Gpio rf24_ce(EXT1_PIN_10);
 
   while (true)
   {
-    gpio_clear(GPIOE, GPIO3);
-    spi_send8(SPI1, GYR_WHO_AM_I | GYR_RNW);
-    spi_read8(SPI1);
-    spi_send8(SPI1, 0);
-    temp = spi_read8(SPI1);
-    my_usart_print_int(USART2, (temp));
-    gpio_set(GPIOE, GPIO3);
+    buffer[0] = GYR_WHO_AM_I | GYR_RNW;
+    buffer[1] = 0;
+    cs.clear();
+    spi.transmit_receive(buffer, buffer, 2);
+    cs.set();
+    my_usart_print_int(USART2, buffer[1]);
 
-    gpio_clear(GPIOE, GPIO3);
-    spi_send8(SPI1, GYR_STATUS_REG | GYR_RNW);
-    spi_read8(SPI1);
-    spi_send8(SPI1, 0);
-    temp = spi_read8(SPI1);
-    my_usart_print_int(USART2, (temp));
-    gpio_set(GPIOE, GPIO3);
+    buffer[0] = GYR_STATUS_REG | GYR_RNW;
+    buffer[1] = 0;
+    cs.clear();
+    spi.transmit_receive(buffer, buffer, 2);
+    cs.set();
+    my_usart_print_int(USART2, buffer[1]);
 
-    gpio_clear(GPIOE, GPIO3);
-    spi_send8(SPI1, GYR_OUT_TEMP | GYR_RNW);
-    spi_read8(SPI1);
-    spi_send8(SPI1, 0);
-    temp = spi_read8(SPI1);
-    my_usart_print_int(USART2, (temp));
-    gpio_set(GPIOE, GPIO3);
+    buffer[0] = GYR_OUT_TEMP | GYR_RNW;
+    buffer[1] = 0;
+    cs.clear();
+    spi.transmit_receive(buffer, buffer, 2);
+    cs.set();
+    my_usart_print_int(USART2, buffer[1]);
 
-    gpio_clear(GPIOE, GPIO3);
-    spi_send8(SPI1, GYR_OUT_X_L | GYR_RNW);
-    spi_read8(SPI1);
-    spi_send8(SPI1, 0);
-    gyr_x = spi_read8(SPI1);
-    gpio_set(GPIOE, GPIO3);
+    buffer[0] = GYR_OUT_X_L | GYR_RNW;
+    buffer[1] = 0;
+    cs.clear();
+    spi.transmit_receive(buffer, buffer, 2);
+    cs.set();
+    gyr_x = buffer[1];
 
-    gpio_clear(GPIOE, GPIO3);
-    spi_send8(SPI1, GYR_OUT_X_H | GYR_RNW);
-    spi_read8(SPI1);
-    spi_send8(SPI1, 0);
-    gyr_x |= spi_read8(SPI1) << 8;
+    buffer[0] = GYR_OUT_X_H | GYR_RNW;
+    buffer[1] = 0;
+    cs.clear();
+    spi.transmit_receive(buffer, buffer, 2);
+    cs.set();
+    gyr_x |= buffer[1] << 8;
     my_usart_print_int(USART2, (gyr_x));
-    gpio_set(GPIOE, GPIO3);
 
     for (int i = 0; i < 800000; i++) /* Wait a bit. */
       __asm__("nop");

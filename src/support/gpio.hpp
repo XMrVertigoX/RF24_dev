@@ -1,5 +1,5 @@
-#ifndef GPIO_HPP_
-#define GPIO_HPP_
+#ifndef __GPIO_HPP
+#define __GPIO_HPP
 
 #include <libnrf24l01/igpio.hpp>
 
@@ -7,14 +7,8 @@
 
 class Gpio : public IGpio
 {
-private:
-  uint32_t _gpioport;
-  uint8_t _mode;
-  uint8_t _pull_up_down;
-  uint16_t _gpios;
-
 public:
-  Gpio(uint32_t gpioport, uint8_t mode, uint8_t pull_up_down, uint16_t gpios);
+  Gpio(uint32_t gpioport, uint16_t gpios);
   virtual ~Gpio();
 
   void clear();
@@ -23,6 +17,10 @@ public:
 
   void disableInterrupt();
   void enableInterrupt(IGpio_Callback_t callback, void *user);
+
+private:
+  uint32_t _gpioport;
+  uint16_t _gpios;
 };
 
-#endif /* GPIO_HPP_ */
+#endif /* __GPIO_HPP */

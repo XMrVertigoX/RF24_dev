@@ -1,15 +1,18 @@
-#ifndef SPIDEVICE_HPP_
-#define SPIDEVICE_HPP_
+#ifndef __SPI_HPP
+#define __SPI_HPP
 
 #include <libnrf24l01/ispi.hpp>
 
 class Spi : public ISpi
 {
 public:
-  Spi();
+  Spi(uint32_t spi);
   virtual ~Spi();
 
-  uint8_t transmit_receive(uint8_t txBytes[], uint8_t rxBytes[], size_t numBytes);
+  uint32_t transmit_receive(uint8_t txBytes[], uint8_t rxBytes[], size_t numBytes);
+
+private:
+  uint32_t _spi;
 };
 
-#endif /* SPIDEVICE_HPP_ */
+#endif /* __SPI_HPP */

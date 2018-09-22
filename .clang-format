@@ -1,5 +1,1 @@
----
-BreakBeforeBraces: Allman
-ColumnLimit: 0
-ConstructorInitializerAllOnOneLineOrOnePerLine: true
-...
+lib/libnrf24l01/.clang-format

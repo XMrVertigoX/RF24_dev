@@ -27,7 +27,7 @@ LDFLAGS      += $(addprefix -L,$(dir $(LIBDEPS)))
 LDFLAGS      += -nostartfiles -static
 LDFLAGS      += -Wl,--gc-sections
 
-LDLIBS       += -lnrf24l01 # -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
+LDLIBS       += -lnrf24l01 -lstdc++ -lc -lgcc -lnosys
 
 # -----
 

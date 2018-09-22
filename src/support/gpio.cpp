@@ -2,14 +2,7 @@
 
 #include <libopencm3/stm32/gpio.h>
 
-Gpio::Gpio(uint32_t gpioport, uint8_t mode, uint8_t pull_up_down, uint16_t gpios)
-    : _gpioport(gpioport),
-      _mode(_mode),
-      _pull_up_down(pull_up_down),
-      _gpios(gpios)
-{
-  gpio_mode_setup(_gpioport, _mode, _pull_up_down, _gpios);
-}
+Gpio::Gpio(uint32_t gpioport, uint16_t gpios) : _gpioport(gpioport), _gpios(gpios) {}
 
 Gpio::~Gpio() {}
 
