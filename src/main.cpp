@@ -31,15 +31,10 @@
 static void spi_setup()
 {
   rcc_periph_clock_enable(RCC_SPI1);
-  /* For spi signal pins */
   rcc_periph_clock_enable(RCC_GPIOA);
-  /* For spi mode select on the l3gd20 */
   rcc_periph_clock_enable(RCC_GPIOE);
 
-  /* Setup GPIOE3 pin for spi mode l3gd20 select. */
   gpio_mode_setup(GPIOE, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO3);
-  /* Start with spi communication disabled */
-  // cs.set();
 
   /* Setup GPIO pins for AF5 for SPI1 signals. */
   gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO5 | GPIO6 | GPIO7);
@@ -142,10 +137,8 @@ int main()
   usart_setup();
   spi_setup();
 
-  Gpio cs(GPIOE, GPIO3);
-  Spi spi(SPI1);
-
-  cs.set();
+  Gpio gyro_ss(GPIOE, GPIO3);
+  Spi gyro(SPI1, gyro_ss);
 
   buffer[0] = GYR_CTRL_REG1;
   buffer[1] = {
@@ -154,15 +147,11 @@ int main()
       GYR_CTRL_REG1_YEN |
       GYR_CTRL_REG1_ZEN |
       (3 << GYR_CTRL_REG1_BW_SHIFT)};
-  cs.clear();
-  spi.transmit_receive(buffer, buffer, 2);
-  cs.set();
+  gyro.transmit_receive(buffer, buffer, 2);
 
   buffer[0] = GYR_CTRL_REG4;
   buffer[1] = (1 << GYR_CTRL_REG4_FS_SHIFT);
-  cs.clear();
-  spi.transmit_receive(buffer, buffer, 2);
-  cs.set();
+  gyro.transmit_receive(buffer, buffer, 2);
 
   Gpio LD3(GPIOE, GPIO9);
   Gpio LD4(GPIOE, GPIO8);
@@ -189,37 +178,27 @@ int main()
   {
     buffer[0] = GYR_WHO_AM_I | GYR_RNW;
     buffer[1] = 0;
-    cs.clear();
-    spi.transmit_receive(buffer, buffer, 2);
-    cs.set();
+    gyro.transmit_receive(buffer, buffer, 2);
     my_usart_print_int(USART2, buffer[1]);
 
     buffer[0] = GYR_STATUS_REG | GYR_RNW;
     buffer[1] = 0;
-    cs.clear();
-    spi.transmit_receive(buffer, buffer, 2);
-    cs.set();
+    gyro.transmit_receive(buffer, buffer, 2);
     my_usart_print_int(USART2, buffer[1]);
 
     buffer[0] = GYR_OUT_TEMP | GYR_RNW;
     buffer[1] = 0;
-    cs.clear();
-    spi.transmit_receive(buffer, buffer, 2);
-    cs.set();
+    gyro.transmit_receive(buffer, buffer, 2);
     my_usart_print_int(USART2, buffer[1]);
 
     buffer[0] = GYR_OUT_X_L | GYR_RNW;
     buffer[1] = 0;
-    cs.clear();
-    spi.transmit_receive(buffer, buffer, 2);
-    cs.set();
+    gyro.transmit_receive(buffer, buffer, 2);
     gyr_x = buffer[1];
 
     buffer[0] = GYR_OUT_X_H | GYR_RNW;
     buffer[1] = 0;
-    cs.clear();
-    spi.transmit_receive(buffer, buffer, 2);
-    cs.set();
+    gyro.transmit_receive(buffer, buffer, 2);
     gyr_x |= buffer[1] << 8;
     my_usart_print_int(USART2, (gyr_x));
 

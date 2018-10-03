@@ -16,11 +16,14 @@ int Gpio::get()
   return gpio_get(_gpioport, _gpios);
 }
 
-void Gpio::set()
+void Gpio::set(bool enable)
 {
-  gpio_set(_gpioport, _gpios);
+  if (enable)
+  {
+    gpio_set(_gpioport, _gpios);
+  }
+  else
+  {
+    clear();
+  }
 }
-
-void Gpio::disableInterrupt() {}
-
-void Gpio::enableInterrupt(IGpio_Callback_t callback, void *user) {}

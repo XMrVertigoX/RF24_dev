@@ -13,10 +13,7 @@ public:
 
   void clear();
   int get();
-  void set();
-
-  void disableInterrupt();
-  void enableInterrupt(IGpio_Callback_t callback, void *user);
+  void set(bool enable = true);
 
 private:
   uint32_t _gpioport;

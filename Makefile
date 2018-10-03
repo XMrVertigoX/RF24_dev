@@ -18,6 +18,7 @@ CXXFLAGS     += -O3 -flto
 CXXFLAGS     += -std=gnu++17
 CXXFLAGS     += -ffunction-sections -fdata-sections
 CXXFLAGS     += -fno-rtti -fno-threadsafe-statics
+CXXFLAGS     += -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables
 
 CPPFLAGS     += $(addprefix -I,$(INCLUDE_DIRS))
 CPPFLAGS     += -MD -MP
@@ -43,6 +44,7 @@ all: $(PROJECT_NAME).elf $(PROJECT_NAME).hex $(PROJECT_NAME).bin
 
 clean:
 	$(RM) -rf $(OBJS) *.bin *.elf *.hex
+	$(MAKE) -C lib/libnrf24l01 clean
 
 download: $(PROJECT_NAME).bin
 	JLinkExe -AutoConnect 1 -ExitOnError 1 -Device $(DEVICE) -IF SWD -Speed auto -CommandFile download.jlink
