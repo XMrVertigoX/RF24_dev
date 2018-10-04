@@ -1,60 +1,66 @@
-#include "support/gpio.hpp"
-#include "support/spi.hpp"
+#include <cstdio>
+#include <cstring>
 
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/spi.h>
 #include <libopencm3/stm32/usart.h>
 
-#include <cstring>
+#include <libnrf24l01/rf24.hpp>
 
-// clang-format off
+#include "support/gpio.hpp"
+#include "support/spi.hpp"
 
-#define GYR_CTRL_REG1          0x20
-#define GYR_CTRL_REG1_BW_SHIFT 4
-#define GYR_CTRL_REG1_PD       (1 << 3)
-#define GYR_CTRL_REG1_XEN      (1 << 1)
-#define GYR_CTRL_REG1_YEN      (1 << 0)
-#define GYR_CTRL_REG1_ZEN      (1 << 2)
-#define GYR_CTRL_REG4          0x23
-#define GYR_CTRL_REG4_FS_SHIFT 4
-#define GYR_MNS                (1 << 6) /* Multiple reads when 1 */
-#define GYR_OUT_TEMP           0x26
-#define GYR_OUT_X_H            0x29
-#define GYR_OUT_X_L            0x28
-#define GYR_RNW                (1 << 7) /* Write when zero */
-#define GYR_STATUS_REG         0x27
-#define GYR_WHO_AM_I           0x0F
+extern "C" int _write(int f, char* bytes, size_t numBytes)
+{
+  (void)f;
 
-// clang-format on
+  for (int i = 0; i < numBytes; i++)
+  {
+    usart_send_blocking(USART2, bytes[i]);
+  }
+
+  return numBytes;
+}
+
+extern "C" int _write_r(struct _reent* r, int f, const void* bytes, size_t numBytes)
+{
+  (void)r;
+  (void)f;
+
+  for (int i = 0; i < numBytes; i++)
+  {
+    usart_send_blocking(USART2, static_cast<const char*>(bytes)[i]);
+  }
+
+  return numBytes;
+}
 
 static void spi_setup()
 {
-  rcc_periph_clock_enable(RCC_SPI1);
-  rcc_periph_clock_enable(RCC_GPIOA);
-  rcc_periph_clock_enable(RCC_GPIOE);
+  // Enable spi2 clock
+  rcc_periph_clock_enable(RCC_SPI2);
+  rcc_periph_clock_enable(RCC_GPIOB);
 
-  gpio_mode_setup(GPIOE, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO3);
-
-  /* Setup GPIO pins for AF5 for SPI1 signals. */
-  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO5 | GPIO6 | GPIO7);
-  gpio_set_af(GPIOA, GPIO_AF5, GPIO5 | GPIO6 | GPIO7);
+  // Setup GPIO alternate functions for SPI2 signals.
+  gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO13 | GPIO14 | GPIO15);
+  gpio_set_af(GPIOB, GPIO_AF5, GPIO13 | GPIO14 | GPIO15);
 
   // spi initialization;
-  spi_set_master_mode(SPI1);
-  spi_set_baudrate_prescaler(SPI1, SPI_CR1_BR_FPCLK_DIV_64);
-  spi_set_clock_polarity_0(SPI1);
-  spi_set_clock_phase_0(SPI1);
-  spi_set_full_duplex_mode(SPI1);
-  spi_set_unidirectional_mode(SPI1); /* bidirectional but in 3-wire */
-  spi_set_data_size(SPI1, SPI_CR2_DS_8BIT);
-  spi_enable_software_slave_management(SPI1);
-  spi_send_msb_first(SPI1);
-  spi_set_nss_high(SPI1);
-  // spi_enable_ss_output(SPI1);
-  spi_fifo_reception_threshold_8bit(SPI1);
-  SPI_I2SCFGR(SPI1) &= ~SPI_I2SCFGR_I2SMOD;
-  spi_enable(SPI1);
+  spi_set_master_mode(SPI2);
+  spi_set_baudrate_prescaler(SPI2, SPI_CR1_BR_FPCLK_DIV_64);
+  spi_set_clock_polarity_0(SPI2);
+  spi_set_clock_phase_0(SPI2);
+  spi_set_full_duplex_mode(SPI2);
+  spi_set_unidirectional_mode(SPI2); /* bidirectional but in 3-wire */
+  spi_set_data_size(SPI2, SPI_CR2_DS_8BIT);
+  spi_enable_software_slave_management(SPI2);
+  spi_send_msb_first(SPI2);
+  spi_set_nss_high(SPI2);
+  // spi_enable_ss_output(SPI2);
+  spi_fifo_reception_threshold_8bit(SPI2);
+  SPI_I2SCFGR(SPI2) &= ~SPI_I2SCFGR_I2SMOD;
+  spi_enable(SPI2);
 }
 
 static void usart_setup()
@@ -81,7 +87,28 @@ static void usart_setup()
 
 static void gpio_setup()
 {
+  rcc_periph_clock_enable(RCC_GPIOA);
+  rcc_periph_clock_enable(RCC_GPIOB);
+  rcc_periph_clock_enable(RCC_GPIOC);
+  rcc_periph_clock_enable(RCC_GPIOD);
   rcc_periph_clock_enable(RCC_GPIOE);
+  rcc_periph_clock_enable(RCC_GPIOF);
+
+  // nRF24 ss
+  gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
+  gpio_mode_setup(GPIOD, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO15);
+
+  // nRF24 irq
+  gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO2);
+  gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO11);
+
+  // nRF24 en
+  gpio_mode_setup(GPIOF, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO2);
+  gpio_mode_setup(GPIOD, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO13);
+
+  // Button
+  gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO0);
+
   gpio_mode_setup(
       GPIOE,
       GPIO_MODE_OUTPUT,
@@ -89,69 +116,37 @@ static void gpio_setup()
       GPIO8 | GPIO9 | GPIO10 | GPIO11 | GPIO12 | GPIO13 | GPIO14 | GPIO15);
 }
 
-static void my_usart_print_int(uint32_t usart, int32_t value)
-{
-  int8_t i;
-  int8_t nr_digits = 0;
-  char buffer[25];
-
-  if (value < 0)
-  {
-    usart_send_blocking(usart, '-');
-    value = value * -1;
-  }
-
-  if (value == 0)
-  {
-    usart_send_blocking(usart, '0');
-  }
-
-  while (value > 0)
-  {
-    buffer[nr_digits++] = "0123456789"[value % 10];
-    value /= 10;
-  }
-
-  for (i = nr_digits - 1; i >= 0; i--)
-  {
-    usart_send_blocking(usart, buffer[i]);
-  }
-
-  usart_send_blocking(usart, '\r');
-  usart_send_blocking(usart, '\n');
-}
-
 static void clock_setup()
 {
   rcc_clock_setup_hsi(&rcc_hsi_configs[RCC_CLOCK_HSI_64MHZ]);
 }
 
+static void rxCallback(RF24_Datagram_t data, void* context)
+{
+  printf("%s -> %u\r\n", __func__, data.bytes[0]);
+}
+
+static void txCallback(void* context)
+{
+  printf("%s\r\n", __func__);
+}
+
 int main()
 {
-  uint8_t buffer[2];
-  uint8_t temp;
-  int16_t gyr_x;
-
   clock_setup();
   gpio_setup();
   usart_setup();
   spi_setup();
 
-  Gpio gyro_ss(GPIOE, GPIO3);
-  Spi gyro(SPI1, gyro_ss);
+  // Wait a moment for rf24 startup
+  for (int i = 0; i < 800000; i++)
+  {
+    __asm__("nop");
+  }
 
-  buffer[0] = GYR_CTRL_REG1;
-  buffer[1] = {
-      GYR_CTRL_REG1_PD |
-      GYR_CTRL_REG1_XEN |
-      GYR_CTRL_REG1_YEN |
-      GYR_CTRL_REG1_ZEN |
-      (3 << GYR_CTRL_REG1_BW_SHIFT)};
-  gyro.transmit_receive(buffer, buffer, 2);
+  printf("%s\r\n", __func__);
 
-  buffer[0] = GYR_CTRL_REG4;
-  buffer[1] = (1 << GYR_CTRL_REG4_FS_SHIFT);
-  gyro.transmit_receive(buffer, buffer, 2);
+  Gpio button(GPIOA, GPIO0);
 
   Gpio LD3(GPIOE, GPIO9);
   Gpio LD4(GPIOE, GPIO8);
@@ -163,46 +158,66 @@ int main()
   Gpio LD10(GPIOE, GPIO13);
 
   LD3.set();
-  // LD4.set();
-  // LD5.set();
+  LD4.set();
+  LD5.set();
   LD6.set();
   LD7.set();
-  // LD8.set();
-  // LD9.set();
+  LD8.set();
+  LD9.set();
   LD10.set();
 
-  // Gpio rf24_irq(EXT1_PIN_9);
-  // Gpio rf24_ce(EXT1_PIN_10);
+  Gpio rf24_1_ss(GPIOB, GPIO12);
+  Gpio rf24_1_en(GPIOF, GPIO2);
+  Gpio rf24_1_irq(GPIOC, GPIO2);
+  Spi rf24_1_spi(SPI2, rf24_1_ss);
+  RF24 rf24_1(rf24_1_spi, rf24_1_en);
+
+  Gpio rf24_2_ss(GPIOD, GPIO15);
+  Gpio rf24_2_en(GPIOD, GPIO13);
+  Gpio rf24_2_irq(GPIOB, GPIO11);
+  Spi rf24_2_spi(SPI2, rf24_2_ss);
+  RF24 rf24_2(rf24_2_spi, rf24_2_en);
+
+  rf24_1.setup();
+  rf24_1.setRxCallback(rxCallback, &rf24_1);
+  // rf24_1.setTxCallback(txCallback, &rf24_1);
+  rf24_1.enterRxMode();
+
+  rf24_2.setup();
+  rf24_2.setRxCallback(rxCallback, &rf24_2);
+  // rf24_2.setTxCallback(txCallback, &rf24_2);
+  rf24_2.enterTxMode();
+
+  rf24_1.startListening();
+  rf24_2.startListening();
+
+  for (int i = 0; i < 80000; i++)
+  {
+    __asm__("nop");
+  }
+
+  static RF24_Datagram_t dummyData;
+  dummyData.bytes[0] = 0;
+  dummyData.numBytes = 1;
 
   while (true)
   {
-    buffer[0] = GYR_WHO_AM_I | GYR_RNW;
-    buffer[1] = 0;
-    gyro.transmit_receive(buffer, buffer, 2);
-    my_usart_print_int(USART2, buffer[1]);
+    // if (!rf24_1_irq.get())
+    // {
+    rf24_1.loop();
+    // }
 
-    buffer[0] = GYR_STATUS_REG | GYR_RNW;
-    buffer[1] = 0;
-    gyro.transmit_receive(buffer, buffer, 2);
-    my_usart_print_int(USART2, buffer[1]);
+    // if (!rf24_2_irq.get())
+    // {
+    rf24_2.loop();
+    // }
 
-    buffer[0] = GYR_OUT_TEMP | GYR_RNW;
-    buffer[1] = 0;
-    gyro.transmit_receive(buffer, buffer, 2);
-    my_usart_print_int(USART2, buffer[1]);
-
-    buffer[0] = GYR_OUT_X_L | GYR_RNW;
-    buffer[1] = 0;
-    gyro.transmit_receive(buffer, buffer, 2);
-    gyr_x = buffer[1];
-
-    buffer[0] = GYR_OUT_X_H | GYR_RNW;
-    buffer[1] = 0;
-    gyro.transmit_receive(buffer, buffer, 2);
-    gyr_x |= buffer[1] << 8;
-    my_usart_print_int(USART2, (gyr_x));
-
-    for (int i = 0; i < 800000; i++) /* Wait a bit. */
-      __asm__("nop");
+    if (button.get())
+    {
+      if (rf24_2.enqueueData(dummyData))
+      {
+        dummyData.bytes[0]++;
+      }
+    }
   }
 }
