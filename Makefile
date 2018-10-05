@@ -2,34 +2,39 @@ DEVICE       := STM32F303VC
 OPENCM3_DIR  := lib/libopencm3
 PROJECT_NAME := rf24_dev
 
-INCLUDE_DIRS := lib/libnrf24l01/inc
-SOURCE_FILES := $(shell find src -type f -name *.cpp) $(wildcard lib/libnrf24l01/src/*.cpp)
+INCLUDE_DIRS := \
+	lib/libnrf24l01/inc
+SOURCE_FILES := \
+	$(wildcard src/*.cpp) \
+	$(wildcard src/support/*.cpp) \
+	$(wildcard lib/libnrf24l01/src/*.cpp)
+OBJS := \
+	$(patsubst %.c,%.o,$(filter %.c,$(SOURCE_FILES))) \
+	$(patsubst %.cpp,%.o,$(filter %.cpp,$(SOURCE_FILES)))
+DEPS := \
+	$(patsubst %.c,%.d,$(filter %.c,$(SOURCE_FILES))) \
+	$(patsubst %.cpp,%.d,$(filter %.cpp,$(SOURCE_FILES)))
+# LIBDEPS      :=
 
-OBJS         := $(patsubst %.cpp,%.o,$(SOURCE_FILES))
-DEPS         := $(patsubst %.cpp,%.d,$(SOURCE_FILES))
-# LIBDEPS      := lib/libnrf24l01/libnrf24l01.a
+# -----
 
-# Flags
-
-# CFLAGS       += -O3 #-flto
-CFLAGS       += -std=gnu11
+# CFLAGS       += -O3 -flto
+CFLAGS       += -std=c17
 CFLAGS       += -ffunction-sections -fdata-sections
 
-# CXXFLAGS     += -O3 #-flto
-CXXFLAGS     += -std=gnu++17
+# CXXFLAGS     += -O3 -flto
+CXXFLAGS     += -std=c++17
 CXXFLAGS     += -ffunction-sections -fdata-sections
-CXXFLAGS     += -fno-rtti -fno-threadsafe-statics
-CXXFLAGS     += -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables
 
 CPPFLAGS     += $(addprefix -I,$(INCLUDE_DIRS))
 CPPFLAGS     += -MD -MP
 
-LDFLAGS      += --specs=nano.specs --specs=nosys.specs
+LDFLAGS      += --specs=nosys.specs --specs=nano.specs
 LDFLAGS      += $(addprefix -L,$(dir $(LIBDEPS)))
-LDFLAGS      += -nostartfiles -static
+LDFLAGS      += -nostartfiles
 LDFLAGS      += -Wl,--gc-sections
 
-LDLIBS       += -lstdc++ -lc -lgcc -lnosys #-lnrf24l01
+LDLIBS       += -lstdc++
 
 # -----
 
@@ -45,15 +50,9 @@ all: $(PROJECT_NAME).elf $(PROJECT_NAME).hex $(PROJECT_NAME).bin
 
 clean:
 	$(RM) -rf $(OBJS) $(DEPS) *.bin *.elf *.hex
-	$(MAKE) -C lib/libnrf24l01 clean
 
 download: $(PROJECT_NAME).bin
 	JLinkExe -AutoConnect 1 -ExitOnError 1 -Device $(DEVICE) -IF SWD -Speed auto -CommandFile download.jlink
-
-# export CROSS_COMPILE=$(PREFIX)-
-# export CXXFLAGS=-mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
-# lib/libnrf24l01/libnrf24l01.a:
-# 	$(MAKE) --directory=$(dir $@)
 
 # -----
 

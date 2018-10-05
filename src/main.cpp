@@ -11,29 +11,23 @@
 #include "support/gpio.hpp"
 #include "support/spi.hpp"
 
-extern "C" int _write(int f, char* bytes, size_t numBytes)
-{
-  (void)f;
+// static Gpio LD3(GPIOE, GPIO9);
+// static Gpio LD4(GPIOE, GPIO8);
+// static Gpio LD5(GPIOE, GPIO10);
+// static Gpio LD6(GPIOE, GPIO15);
+// static Gpio LD7(GPIOE, GPIO11);
+// static Gpio LD8(GPIOE, GPIO14);
+// static Gpio LD9(GPIOE, GPIO12);
+// static Gpio LD10(GPIOE, GPIO13);
 
-  for (int i = 0; i < numBytes; i++)
+extern "C" int _write(int fd, const void* buf, size_t count)
+{
+  for (int i = 0; i < count; i++)
   {
-    usart_send_blocking(USART2, bytes[i]);
+    usart_send_blocking(USART2, static_cast<const char*>(buf)[i]);
   }
 
-  return numBytes;
-}
-
-extern "C" int _write_r(struct _reent* r, int f, const void* bytes, size_t numBytes)
-{
-  (void)r;
-  (void)f;
-
-  for (int i = 0; i < numBytes; i++)
-  {
-    usart_send_blocking(USART2, static_cast<const char*>(bytes)[i]);
-  }
-
-  return numBytes;
+  return count;
 }
 
 static void spi_setup()
@@ -123,12 +117,22 @@ static void clock_setup()
 
 static void rxCallback(RF24_Datagram_t data, void* context)
 {
-  printf("%s -> %u\r\n", __func__, data.bytes[0]);
+  static unsigned char counter = 0;
+
+  if (!counter)
+  {
+    printf("%s\r\n", __func__);
+  }
+
+  if (data.bytes[0] != counter++)
+  {
+    printf("%s -> %u != %u\r\n", __func__, data.bytes[0], counter);
+  }
 }
 
 static void txCallback(void* context)
 {
-  printf("%s\r\n", __func__);
+  // printf("%s\r\n", __func__);
 }
 
 int main()
@@ -144,7 +148,7 @@ int main()
     __asm__("nop");
   }
 
-  printf("%s\r\n", __func__);
+  printf("\n\r==> %s <==\r\n", __func__);
 
   Gpio button(GPIOA, GPIO0);
 
@@ -157,14 +161,14 @@ int main()
   Gpio LD9(GPIOE, GPIO12);
   Gpio LD10(GPIOE, GPIO13);
 
-  LD3.set();
-  LD4.set();
-  LD5.set();
-  LD6.set();
-  LD7.set();
-  LD8.set();
-  LD9.set();
-  LD10.set();
+  // LD3.set();
+  // LD4.set();
+  // LD5.set();
+  // LD6.set();
+  // LD7.set();
+  // LD8.set();
+  // LD9.set();
+  // LD10.set();
 
   Gpio rf24_1_ss(GPIOB, GPIO12);
   Gpio rf24_1_en(GPIOF, GPIO2);
@@ -179,14 +183,21 @@ int main()
   RF24 rf24_2(rf24_2_spi, rf24_2_en);
 
   rf24_1.setup();
+  rf24_1.setRetryCount(0x0);
+  rf24_1.setRetryDelay(0x0);
   rf24_1.setRxCallback(rxCallback, &rf24_1);
-  // rf24_1.setTxCallback(txCallback, &rf24_1);
+  rf24_1.setTxCallback(txCallback, &rf24_1);
   rf24_1.enterRxMode();
 
   rf24_2.setup();
+  rf24_2.setRetryCount(0x0);
+  rf24_2.setRetryDelay(0x0);
   rf24_2.setRxCallback(rxCallback, &rf24_2);
-  // rf24_2.setTxCallback(txCallback, &rf24_2);
+  rf24_2.setTxCallback(txCallback, &rf24_2);
   rf24_2.enterTxMode();
+
+  printf("%u %u\r\n", rf24_1.getRetryCount(), rf24_1.getRetryDelay());
+  printf("%u %u\r\n", rf24_2.getRetryCount(), rf24_2.getRetryDelay());
 
   rf24_1.startListening();
   rf24_2.startListening();

@@ -1,6 +1,6 @@
-#include "spi.hpp"
-
 #include <libopencm3/stm32/spi.h>
+
+#include "spi.hpp"
 
 Spi::Spi(uint32_t spi, IGpio& ss) : _spi(spi), _ss(ss)
 {
