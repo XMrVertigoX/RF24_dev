@@ -1,9 +1,9 @@
 #ifndef __GPIO_HPP
 #define __GPIO_HPP
 
-#include <libnrf24l01/igpio.hpp>
-
 #include <cstdint>
+
+#include <libnrf24l01/igpio.hpp>
 
 class Gpio : public IGpio
 {
@@ -14,6 +14,7 @@ public:
   void clear();
   int get();
   void set(bool enable = true);
+  void toggle();
 
 private:
   uint32_t _gpioport;

@@ -27,3 +27,8 @@ void Gpio::set(bool enable)
     clear();
   }
 }
+
+void Gpio::toggle()
+{
+  gpio_toggle(_gpioport, _gpios);
+}
