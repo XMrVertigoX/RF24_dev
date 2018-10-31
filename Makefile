@@ -1,6 +1,6 @@
 DEVICE       := STM32F303VC
 OPENCM3_DIR  := lib/libopencm3
-PROJECT_NAME := rf24_dev
+PROJECT_NAME := nRF24_dev
 
 INCLUDE_DIRS := \
 	lib/libnrf24l01/inc
@@ -19,11 +19,11 @@ DEPS := \
 # -----
 
 # CFLAGS       += -O3 -flto
-CFLAGS       += -std=c17
+CFLAGS       += -std=gnu17
 CFLAGS       += -ffunction-sections -fdata-sections
 
 # CXXFLAGS     += -O3 -flto
-CXXFLAGS     += -std=c++17
+CXXFLAGS     += -std=gnu++17
 CXXFLAGS     += -ffunction-sections -fdata-sections
 
 CPPFLAGS     += $(addprefix -I,$(INCLUDE_DIRS))
@@ -31,7 +31,7 @@ CPPFLAGS     += -MD -MP
 
 LDFLAGS      += --specs=nosys.specs --specs=nano.specs
 LDFLAGS      += $(addprefix -L,$(dir $(LIBDEPS)))
-LDFLAGS      += -nostartfiles
+LDFLAGS      += -nostartfiles -static
 LDFLAGS      += -Wl,--gc-sections
 
 LDLIBS       += -lstdc++

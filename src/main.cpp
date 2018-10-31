@@ -1,24 +1,31 @@
 #include <cstdio>
 #include <cstring>
+#include <queue>
 
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/spi.h>
 #include <libopencm3/stm32/usart.h>
 
-#include <libnrf24l01/rf24.hpp>
+#include <libnrf24l01/nrf24.hpp>
 
 #include "support/gpio.hpp"
 #include "support/spi.hpp"
 
-// static Gpio LD3(GPIOE, GPIO9);
-// static Gpio LD4(GPIOE, GPIO8);
-// static Gpio LD5(GPIOE, GPIO10);
-// static Gpio LD6(GPIOE, GPIO15);
-// static Gpio LD7(GPIOE, GPIO11);
-// static Gpio LD8(GPIOE, GPIO14);
-// static Gpio LD9(GPIOE, GPIO12);
-// static Gpio LD10(GPIOE, GPIO13);
+void* __dso_handle = nullptr;
+
+static Gpio button(GPIOA, GPIO0);
+
+static Gpio LD3(GPIOE, GPIO9);
+static Gpio LD4(GPIOE, GPIO8);
+static Gpio LD5(GPIOE, GPIO10);
+static Gpio LD6(GPIOE, GPIO15);
+static Gpio LD7(GPIOE, GPIO11);
+static Gpio LD8(GPIOE, GPIO14);
+static Gpio LD9(GPIOE, GPIO12);
+static Gpio LD10(GPIOE, GPIO13);
+
+static nRF24_Datagram_t globalData;
 
 extern "C" int _write(int fd, const void* buf, size_t count)
 {
@@ -88,15 +95,15 @@ static void gpio_setup()
   rcc_periph_clock_enable(RCC_GPIOE);
   rcc_periph_clock_enable(RCC_GPIOF);
 
-  // nRF24 ss
+  // nnRF24 ss
   gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
   gpio_mode_setup(GPIOD, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO15);
 
-  // nRF24 irq
+  // nnRF24 irq
   gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO2);
   gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO11);
 
-  // nRF24 en
+  // nnRF24 en
   gpio_mode_setup(GPIOF, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO2);
   gpio_mode_setup(GPIOD, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO13);
 
@@ -107,7 +114,7 @@ static void gpio_setup()
       GPIOE,
       GPIO_MODE_OUTPUT,
       GPIO_PUPD_NONE,
-      GPIO8 | GPIO9 | GPIO10 | GPIO11 | GPIO12 | GPIO13 | GPIO14 | GPIO15);
+      (GPIO8 | GPIO9 | GPIO10 | GPIO11 | GPIO12 | GPIO13 | GPIO14 | GPIO15));
 }
 
 static void clock_setup()
@@ -115,24 +122,22 @@ static void clock_setup()
   rcc_clock_setup_hsi(&rcc_hsi_configs[RCC_CLOCK_HSI_64MHZ]);
 }
 
-static void rxCallback(RF24_Datagram_t data, void* context)
+static void rxCallback(nRF24_Datagram_t data, void* context)
 {
-  static unsigned char counter = 0;
+  nRF24* self = static_cast<nRF24*>(context);
 
-  if (!counter)
+  if (*reinterpret_cast<int*>(data.bytes) % 500 == 0)
   {
-    printf("%s\r\n", __func__);
-  }
-
-  if (data.bytes[0] != counter++)
-  {
-    printf("%s -> %u != %u\r\n", __func__, data.bytes[0], counter);
+    LD6.toggle();
   }
 }
 
 static void txCallback(void* context)
 {
-  // printf("%s\r\n", __func__);
+  nRF24* self = static_cast<nRF24*>(context);
+
+  *reinterpret_cast<int*>(globalData.bytes) += 1;
+  self->enqueueData(globalData);
 }
 
 int main()
@@ -148,87 +153,56 @@ int main()
     __asm__("nop");
   }
 
-  printf("\n\r==> %s <==\r\n", __func__);
-
-  Gpio button(GPIOA, GPIO0);
-
-  Gpio LD3(GPIOE, GPIO9);
-  Gpio LD4(GPIOE, GPIO8);
-  Gpio LD5(GPIOE, GPIO10);
-  Gpio LD6(GPIOE, GPIO15);
-  Gpio LD7(GPIOE, GPIO11);
-  Gpio LD8(GPIOE, GPIO14);
-  Gpio LD9(GPIOE, GPIO12);
-  Gpio LD10(GPIOE, GPIO13);
-
-  // LD3.set();
-  // LD4.set();
-  // LD5.set();
-  // LD6.set();
-  // LD7.set();
-  // LD8.set();
-  // LD9.set();
-  // LD10.set();
+  printf("Application\r\n");
 
   Gpio rf24_1_ss(GPIOB, GPIO12);
   Gpio rf24_1_en(GPIOF, GPIO2);
   Gpio rf24_1_irq(GPIOC, GPIO2);
   Spi rf24_1_spi(SPI2, rf24_1_ss);
-  RF24 rf24_1(rf24_1_spi, rf24_1_en);
+  nRF24 rf24_1(rf24_1_spi, rf24_1_en);
 
   Gpio rf24_2_ss(GPIOD, GPIO15);
   Gpio rf24_2_en(GPIOD, GPIO13);
   Gpio rf24_2_irq(GPIOB, GPIO11);
   Spi rf24_2_spi(SPI2, rf24_2_ss);
-  RF24 rf24_2(rf24_2_spi, rf24_2_en);
+  nRF24 rf24_2(rf24_2_spi, rf24_2_en);
 
   rf24_1.setup();
-  rf24_1.setRetryCount(0x0);
-  rf24_1.setRetryDelay(0x0);
+  rf24_1.setRetryCount(0xf);
+  rf24_1.setRetryDelay(0xf);
+  rf24_1.setDataRate(nRF24_DataRate_t::DR_2MBPS);
   rf24_1.setRxCallback(rxCallback, &rf24_1);
   rf24_1.setTxCallback(txCallback, &rf24_1);
+  rf24_1.startListening();
   rf24_1.enterRxMode();
 
   rf24_2.setup();
-  rf24_2.setRetryCount(0x0);
-  rf24_2.setRetryDelay(0x0);
+  rf24_2.setRetryCount(0xf);
+  rf24_2.setRetryDelay(0xf);
+  rf24_2.setDataRate(nRF24_DataRate_t::DR_2MBPS);
   rf24_2.setRxCallback(rxCallback, &rf24_2);
   rf24_2.setTxCallback(txCallback, &rf24_2);
-  rf24_2.enterTxMode();
-
-  printf("%u %u\r\n", rf24_1.getRetryCount(), rf24_1.getRetryDelay());
-  printf("%u %u\r\n", rf24_2.getRetryCount(), rf24_2.getRetryDelay());
-
-  rf24_1.startListening();
   rf24_2.startListening();
+  rf24_2.enterTxMode();
 
   for (int i = 0; i < 80000; i++)
   {
     __asm__("nop");
   }
 
-  static RF24_Datagram_t dummyData;
-  dummyData.bytes[0] = 0;
-  dummyData.numBytes = 1;
+  *reinterpret_cast<int*>(globalData.bytes) = 0;
+  globalData.numBytes = 32;
+
+  rf24_2.enqueueData(globalData);
 
   while (true)
   {
-    // if (!rf24_1_irq.get())
-    // {
     rf24_1.loop();
-    // }
-
-    // if (!rf24_2_irq.get())
-    // {
     rf24_2.loop();
-    // }
 
-    if (button.get())
-    {
-      if (rf24_2.enqueueData(dummyData))
-      {
-        dummyData.bytes[0]++;
-      }
-    }
+    // if (rf24_2.enqueueData(globalData))
+    // {
+    //   *reinterpret_cast<int*>(globalData.bytes) += 1;
+    // }
   }
 }
