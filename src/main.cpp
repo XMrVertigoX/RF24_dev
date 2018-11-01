@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <queue>
 
@@ -16,14 +17,19 @@ void* __dso_handle = nullptr;
 
 static Gpio button(GPIOA, GPIO0);
 
-static Gpio LD3(GPIOE, GPIO9);
-static Gpio LD4(GPIOE, GPIO8);
-static Gpio LD5(GPIOE, GPIO10);
-static Gpio LD6(GPIOE, GPIO15);
-static Gpio LD7(GPIOE, GPIO11);
-static Gpio LD8(GPIOE, GPIO14);
-static Gpio LD9(GPIOE, GPIO12);
-static Gpio LD10(GPIOE, GPIO13);
+// static Gpio LD3(GPIOE, GPIO9);
+// static Gpio LD4(GPIOE, GPIO8);
+// static Gpio LD5(GPIOE, GPIO10);
+// static Gpio LD6(GPIOE, GPIO15);
+// static Gpio LD7(GPIOE, GPIO11);
+// static Gpio LD8(GPIOE, GPIO14);
+// static Gpio LD9(GPIOE, GPIO12);
+// static Gpio LD10(GPIOE, GPIO13);
+
+static Gpio ledBlue(GPIOE, (GPIO8 | GPIO12));
+static Gpio ledGreen(GPIOE, (GPIO15 | GPIO11));
+static Gpio ledRed(GPIOE, (GPIO9 | GPIO13));
+static Gpio ledYellow(GPIOE, (GPIO10 | GPIO14));
 
 static nRF24_Datagram_t globalData;
 
@@ -124,20 +130,45 @@ static void clock_setup()
 
 static void rxCallback(nRF24_Datagram_t data, void* context)
 {
-  nRF24* self = static_cast<nRF24*>(context);
+  // nRF24* self = static_cast<nRF24*>(context);
 
-  if (*reinterpret_cast<int*>(data.bytes) % 500 == 0)
+  static int counter = 0;
+
+  if (counter++ % 100 == 0)
   {
-    LD6.toggle();
+    ledYellow.toggle();
+  }
+
+  if (*reinterpret_cast<int*>(data.bytes) % 100 == 0)
+  {
+    ledGreen.toggle();
+  }
+
+  static int counter2 = 0;
+
+  if (*reinterpret_cast<int*>(data.bytes) == counter2)
+  {
+    ledRed.clear();
+    counter2++;
+  }
+  else
+  {
+    printf("%d\r\n", *reinterpret_cast<int*>(data.bytes) - counter2);
+    ledRed.set();
+    counter2 = *reinterpret_cast<int*>(data.bytes);
   }
 }
 
 static void txCallback(void* context)
 {
-  nRF24* self = static_cast<nRF24*>(context);
+  // nRF24* self = static_cast<nRF24*>(context);
 
-  *reinterpret_cast<int*>(globalData.bytes) += 1;
-  self->enqueueData(globalData);
+  static int counter = 0;
+
+  if (counter++ % 100 == 0)
+  {
+    ledBlue.toggle();
+  }
 }
 
 int main()
@@ -146,6 +177,8 @@ int main()
   gpio_setup();
   usart_setup();
   spi_setup();
+
+  ledRed.set();
 
   // Wait a moment for rf24 startup
   for (int i = 0; i < 800000; i++)
@@ -167,6 +200,16 @@ int main()
   Spi rf24_2_spi(SPI2, rf24_2_ss);
   nRF24 rf24_2(rf24_2_spi, rf24_2_en);
 
+  rf24_1.enterStandbyMode();
+  rf24_2.enterStandbyMode();
+
+  ledYellow.set();
+
+  for (int i = 0; i < 800000; i++)
+  {
+    __asm__("nop");
+  }
+
   rf24_1.setup();
   rf24_1.setRetryCount(0xf);
   rf24_1.setRetryDelay(0xf);
@@ -174,7 +217,6 @@ int main()
   rf24_1.setRxCallback(rxCallback, &rf24_1);
   rf24_1.setTxCallback(txCallback, &rf24_1);
   rf24_1.startListening();
-  rf24_1.enterRxMode();
 
   rf24_2.setup();
   rf24_2.setRetryCount(0xf);
@@ -183,9 +225,20 @@ int main()
   rf24_2.setRxCallback(rxCallback, &rf24_2);
   rf24_2.setTxCallback(txCallback, &rf24_2);
   rf24_2.startListening();
+
+  ledGreen.set();
+
+  for (int i = 0; i < 800000; i++)
+  {
+    __asm__("nop");
+  }
+
+  rf24_1.enterRxMode();
   rf24_2.enterTxMode();
 
-  for (int i = 0; i < 80000; i++)
+  ledBlue.set();
+
+  for (int i = 0; i < 800000; i++)
   {
     __asm__("nop");
   }
@@ -193,16 +246,24 @@ int main()
   *reinterpret_cast<int*>(globalData.bytes) = 0;
   globalData.numBytes = 32;
 
-  rf24_2.enqueueData(globalData);
-
   while (true)
   {
+    if (rf24_2.enqueueData(globalData) == EXIT_SUCCESS)
+    {
+      *reinterpret_cast<int*>(globalData.bytes) += 1;
+    }
+
+    if (rf24_1_irq.get() == 0)
+    {
+      rf24_1.notify();
+    }
+
+    if (rf24_2_irq.get() == 0)
+    {
+      rf24_2.notify();
+    }
+
     rf24_1.loop();
     rf24_2.loop();
-
-    // if (rf24_2.enqueueData(globalData))
-    // {
-    //   *reinterpret_cast<int*>(globalData.bytes) += 1;
-    // }
   }
 }
