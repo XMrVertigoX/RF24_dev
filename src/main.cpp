@@ -3,6 +3,8 @@
 #include <cstring>
 #include <queue>
 
+#include <libopencm3/cm3/nvic.h>
+#include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/spi.h>
@@ -15,7 +17,7 @@
 
 void* __dso_handle = nullptr;
 
-static Gpio button(GPIOA, GPIO0);
+// static Gpio button(GPIOA, GPIO0);
 
 // static Gpio LD3(GPIOE, GPIO9);
 // static Gpio LD4(GPIOE, GPIO8);
@@ -30,6 +32,18 @@ static Gpio ledBlue(GPIOE, (GPIO8 | GPIO12));
 static Gpio ledGreen(GPIOE, (GPIO15 | GPIO11));
 static Gpio ledRed(GPIOE, (GPIO9 | GPIO13));
 static Gpio ledYellow(GPIOE, (GPIO10 | GPIO14));
+
+static Gpio rf24_1_ss(GPIOB, GPIO12);
+static Gpio rf24_1_en(GPIOF, GPIO2);
+// static Gpio rf24_1_irq(GPIOC, GPIO2);
+static Spi rf24_1_spi(SPI2, rf24_1_ss);
+static nRF24 rf24_1(rf24_1_spi, rf24_1_en);
+
+static Gpio rf24_2_ss(GPIOD, GPIO15);
+static Gpio rf24_2_en(GPIOD, GPIO13);
+// static Gpio rf24_2_irq(GPIOB, GPIO11);
+static Spi rf24_2_spi(SPI2, rf24_2_ss);
+static nRF24 rf24_2(rf24_2_spi, rf24_2_en);
 
 static nRF24_Datagram_t globalData;
 
@@ -101,26 +115,70 @@ static void gpio_setup()
   rcc_periph_clock_enable(RCC_GPIOE);
   rcc_periph_clock_enable(RCC_GPIOF);
 
-  // nnRF24 ss
+  // nRF24 ss
   gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
   gpio_mode_setup(GPIOD, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO15);
 
-  // nnRF24 irq
-  gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO2);
-  gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO11);
+  // nRF24 irq
+  // gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO2);
+  // gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO11);
 
-  // nnRF24 en
+  // nRF24 en
   gpio_mode_setup(GPIOF, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO2);
   gpio_mode_setup(GPIOD, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO13);
 
   // Button
-  gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO0);
+  // gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO0);
 
+  // LEDs
   gpio_mode_setup(
       GPIOE,
       GPIO_MODE_OUTPUT,
       GPIO_PUPD_NONE,
       (GPIO8 | GPIO9 | GPIO10 | GPIO11 | GPIO12 | GPIO13 | GPIO14 | GPIO15));
+}
+
+static void exti_setup()
+{
+  nvic_enable_irq(NVIC_EXTI0_IRQ);
+  nvic_enable_irq(NVIC_EXTI2_TSC_IRQ);
+  nvic_enable_irq(NVIC_EXTI15_10_IRQ);
+
+  gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO0);
+  gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO2);
+  gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO11);
+
+  exti_select_source(EXTI0, GPIOA);
+  exti_set_trigger(EXTI0, EXTI_TRIGGER_RISING);
+  exti_enable_request(EXTI0);
+
+  exti_select_source(EXTI2, GPIOC);
+  exti_set_trigger(EXTI2, EXTI_TRIGGER_FALLING);
+  exti_enable_request(EXTI2);
+
+  exti_select_source(EXTI11, GPIOB);
+  exti_set_trigger(EXTI11, EXTI_TRIGGER_FALLING);
+  exti_enable_request(EXTI11);
+}
+
+extern "C" void exti0_isr(void)
+{
+  printf("button\r\n");
+  exti_reset_request(EXTI0);
+}
+
+extern "C" void exti2_tsc_isr(void)
+{
+  printf("exti2_tsc_isr\r\n");
+  rf24_1.notify();
+  exti_reset_request(EXTI2);
+}
+
+extern "C" void exti15_10_isr(void)
+{
+  printf("exti15_10_isr\r\n");
+  rf24_2.notify();
+  exti_reset_request(EXTI11);
 }
 
 static void clock_setup()
@@ -148,12 +206,11 @@ static void rxCallback(nRF24_Datagram_t data, void* context)
 
   if (*reinterpret_cast<int*>(data.bytes) == counter2)
   {
-    ledRed.clear();
+    // ledRed.clear();
     counter2++;
   }
   else
   {
-    printf("%d\r\n", *reinterpret_cast<int*>(data.bytes) - counter2);
     ledRed.set();
     counter2 = *reinterpret_cast<int*>(data.bytes);
   }
@@ -177,6 +234,7 @@ int main()
   gpio_setup();
   usart_setup();
   spi_setup();
+  exti_setup();
 
   ledRed.set();
 
@@ -187,18 +245,6 @@ int main()
   }
 
   printf("Application\r\n");
-
-  Gpio rf24_1_ss(GPIOB, GPIO12);
-  Gpio rf24_1_en(GPIOF, GPIO2);
-  Gpio rf24_1_irq(GPIOC, GPIO2);
-  Spi rf24_1_spi(SPI2, rf24_1_ss);
-  nRF24 rf24_1(rf24_1_spi, rf24_1_en);
-
-  Gpio rf24_2_ss(GPIOD, GPIO15);
-  Gpio rf24_2_en(GPIOD, GPIO13);
-  Gpio rf24_2_irq(GPIOB, GPIO11);
-  Spi rf24_2_spi(SPI2, rf24_2_ss);
-  nRF24 rf24_2(rf24_2_spi, rf24_2_en);
 
   rf24_1.enterStandbyMode();
   rf24_2.enterStandbyMode();
@@ -233,8 +279,8 @@ int main()
     __asm__("nop");
   }
 
-  rf24_1.enterRxMode();
-  rf24_2.enterTxMode();
+  // rf24_1.enterRxMode();
+  // rf24_2.enterTxMode();
 
   ledBlue.set();
 
@@ -246,24 +292,26 @@ int main()
   *reinterpret_cast<int*>(globalData.bytes) = 0;
   globalData.numBytes = 32;
 
+  ledRed.clear();
+
   while (true)
   {
-    if (rf24_2.enqueueData(globalData) == EXIT_SUCCESS)
-    {
-      *reinterpret_cast<int*>(globalData.bytes) += 1;
-    }
+    // if (rf24_2.enqueueData(globalData) == EXIT_SUCCESS)
+    // {
+    //   *reinterpret_cast<int*>(globalData.bytes) += 1;
+    // }
 
-    if (rf24_1_irq.get() == 0)
-    {
-      rf24_1.notify();
-    }
+    // if (rf24_1_irq.get() == 0)
+    // {
+    //   rf24_1.notify();
+    // }
 
-    if (rf24_2_irq.get() == 0)
-    {
-      rf24_2.notify();
-    }
+    // if (rf24_2_irq.get() == 0)
+    // {
+    //   rf24_2.notify();
+    // }
 
-    rf24_1.loop();
-    rf24_2.loop();
+    // rf24_1.loop();
+    // rf24_2.loop();
   }
 }
