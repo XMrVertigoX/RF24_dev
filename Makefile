@@ -18,11 +18,11 @@ DEPS := \
 
 # -----
 
-# CFLAGS       += -O3 -flto
+CFLAGS       += -O3 #-flto
 CFLAGS       += -std=gnu17
 CFLAGS       += -ffunction-sections -fdata-sections
 
-# CXXFLAGS     += -O3 -flto
+CXXFLAGS     += -O3 #-flto
 CXXFLAGS     += -std=gnu++17
 CXXFLAGS     += -ffunction-sections -fdata-sections
 

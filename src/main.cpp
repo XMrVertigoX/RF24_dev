@@ -47,7 +47,7 @@ static nRF24 rf24_2(rf24_2_spi, rf24_2_en);
 
 static nRF24_Datagram_t globalData;
 
-static uint8_t defaultAddress      = 0xE7;
+static uint8_t defaultAddress = 0xE7;
 static uint32_t defaultBaseAddress = 0xE7E7E7E7;
 
 extern "C" int _write(int fd, const void* buf, size_t count)
@@ -206,7 +206,7 @@ static void rxCallback(nRF24_Datagram_t data, void* context)
 
   if (*reinterpret_cast<int*>(data.bytes) == counter2)
   {
-    // ledRed.clear();
+    ledRed.clear();
     counter2++;
   }
   else
@@ -257,25 +257,11 @@ int main()
   }
 
   rf24_1.setup();
-  rf24_1.writeRxAddress(0, defaultAddress);
-  rf24_1.writeRxBaseAddress(0, defaultBaseAddress);
-  rf24_1.writeTxAddress(defaultAddress);
-  rf24_1.writeTxBaseAddress(defaultBaseAddress);
-  rf24_1.setRetryCount(0xf);
-  rf24_1.setRetryDelay(0xf);
-  rf24_1.setDataRate(nRF24_DataRate_t::DR_2MBPS);
   rf24_1.setRxCallback(rxCallback, &rf24_1);
   rf24_1.setTxCallback(txCallback, &rf24_1);
   rf24_1.startListening();
 
   rf24_2.setup();
-  rf24_2.writeRxAddress(0, defaultAddress);
-  rf24_2.writeRxBaseAddress(0, defaultBaseAddress);
-  rf24_2.writeTxAddress(defaultAddress);
-  rf24_2.writeTxBaseAddress(defaultBaseAddress);
-  rf24_2.setRetryCount(0xf);
-  rf24_2.setRetryDelay(0xf);
-  rf24_2.setDataRate(nRF24_DataRate_t::DR_2MBPS);
   rf24_2.setRxCallback(rxCallback, &rf24_2);
   rf24_2.setTxCallback(txCallback, &rf24_2);
   rf24_2.startListening();
@@ -298,7 +284,7 @@ int main()
   }
 
   *reinterpret_cast<int*>(globalData.bytes) = 0;
-  globalData.numBytes                       = 32;
+  globalData.numBytes = 32;
 
   ledRed.clear();
 
