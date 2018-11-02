@@ -145,24 +145,23 @@ static void exti_setup()
 {
   rcc_periph_clock_enable(RCC_SYSCFG);
 
-  nvic_enable_irq(NVIC_EXTI0_IRQ);
-  nvic_enable_irq(NVIC_EXTI2_TSC_IRQ);
-  nvic_enable_irq(NVIC_EXTI15_10_IRQ);
-
   // Button
   exti_select_source(EXTI0, GPIOA);
   exti_set_trigger(EXTI0, EXTI_TRIGGER_RISING);
   exti_enable_request(EXTI0);
+  nvic_enable_irq(NVIC_EXTI0_IRQ);
 
   // nRF24_1
   exti_select_source(EXTI2, GPIOC);
   exti_set_trigger(EXTI2, EXTI_TRIGGER_FALLING);
   exti_enable_request(EXTI2);
+  nvic_enable_irq(NVIC_EXTI2_TSC_IRQ);
 
   // nRF24_2
   exti_select_source(EXTI11, GPIOB);
   exti_set_trigger(EXTI11, EXTI_TRIGGER_FALLING);
   exti_enable_request(EXTI11);
+  nvic_enable_irq(NVIC_EXTI15_10_IRQ);
 }
 
 extern "C" void exti0_isr(void)
