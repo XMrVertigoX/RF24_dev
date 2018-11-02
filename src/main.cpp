@@ -35,17 +35,20 @@ static Gpio ledYellow(GPIOE, (GPIO10 | GPIO14));
 
 static Gpio rf24_1_ss(GPIOB, GPIO12);
 static Gpio rf24_1_en(GPIOF, GPIO2);
-// static Gpio rf24_1_irq(GPIOC, GPIO2);
+static Gpio rf24_1_irq(GPIOC, GPIO2);
 static Spi rf24_1_spi(SPI2, rf24_1_ss);
 static nRF24 rf24_1(rf24_1_spi, rf24_1_en);
 
 static Gpio rf24_2_ss(GPIOD, GPIO15);
 static Gpio rf24_2_en(GPIOD, GPIO13);
-// static Gpio rf24_2_irq(GPIOB, GPIO11);
+static Gpio rf24_2_irq(GPIOB, GPIO11);
 static Spi rf24_2_spi(SPI2, rf24_2_ss);
 static nRF24 rf24_2(rf24_2_spi, rf24_2_en);
 
 static nRF24_Datagram_t globalData;
+
+static uint8_t defaultAddress      = 0xE7;
+static uint32_t defaultBaseAddress = 0xE7E7E7E7;
 
 extern "C" int _write(int fd, const void* buf, size_t count)
 {
@@ -120,15 +123,15 @@ static void gpio_setup()
   gpio_mode_setup(GPIOD, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO15);
 
   // nRF24 irq
-  // gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO2);
-  // gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO11);
+  gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO2);
+  gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO11);
 
   // nRF24 en
   gpio_mode_setup(GPIOF, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO2);
   gpio_mode_setup(GPIOD, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO13);
 
   // Button
-  // gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO0);
+  gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO0);
 
   // LEDs
   gpio_mode_setup(
@@ -140,22 +143,23 @@ static void gpio_setup()
 
 static void exti_setup()
 {
+  rcc_periph_clock_enable(RCC_SYSCFG);
+
   nvic_enable_irq(NVIC_EXTI0_IRQ);
   nvic_enable_irq(NVIC_EXTI2_TSC_IRQ);
   nvic_enable_irq(NVIC_EXTI15_10_IRQ);
 
-  gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO0);
-  gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO2);
-  gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO11);
-
+  // Button
   exti_select_source(EXTI0, GPIOA);
   exti_set_trigger(EXTI0, EXTI_TRIGGER_RISING);
   exti_enable_request(EXTI0);
 
+  // nRF24_1
   exti_select_source(EXTI2, GPIOC);
   exti_set_trigger(EXTI2, EXTI_TRIGGER_FALLING);
   exti_enable_request(EXTI2);
 
+  // nRF24_2
   exti_select_source(EXTI11, GPIOB);
   exti_set_trigger(EXTI11, EXTI_TRIGGER_FALLING);
   exti_enable_request(EXTI11);
@@ -163,20 +167,17 @@ static void exti_setup()
 
 extern "C" void exti0_isr(void)
 {
-  printf("button\r\n");
   exti_reset_request(EXTI0);
 }
 
 extern "C" void exti2_tsc_isr(void)
 {
-  printf("exti2_tsc_isr\r\n");
   rf24_1.notify();
   exti_reset_request(EXTI2);
 }
 
 extern "C" void exti15_10_isr(void)
 {
-  printf("exti15_10_isr\r\n");
   rf24_2.notify();
   exti_reset_request(EXTI11);
 }
@@ -257,6 +258,10 @@ int main()
   }
 
   rf24_1.setup();
+  rf24_1.writeRxAddress(0, defaultAddress);
+  rf24_1.writeRxBaseAddress(0, defaultBaseAddress);
+  rf24_1.writeTxAddress(defaultAddress);
+  rf24_1.writeTxBaseAddress(defaultBaseAddress);
   rf24_1.setRetryCount(0xf);
   rf24_1.setRetryDelay(0xf);
   rf24_1.setDataRate(nRF24_DataRate_t::DR_2MBPS);
@@ -265,6 +270,10 @@ int main()
   rf24_1.startListening();
 
   rf24_2.setup();
+  rf24_2.writeRxAddress(0, defaultAddress);
+  rf24_2.writeRxBaseAddress(0, defaultBaseAddress);
+  rf24_2.writeTxAddress(defaultAddress);
+  rf24_2.writeTxBaseAddress(defaultBaseAddress);
   rf24_2.setRetryCount(0xf);
   rf24_2.setRetryDelay(0xf);
   rf24_2.setDataRate(nRF24_DataRate_t::DR_2MBPS);
@@ -279,8 +288,8 @@ int main()
     __asm__("nop");
   }
 
-  // rf24_1.enterRxMode();
-  // rf24_2.enterTxMode();
+  rf24_1.enterRxMode();
+  rf24_2.enterTxMode();
 
   ledBlue.set();
 
@@ -290,28 +299,18 @@ int main()
   }
 
   *reinterpret_cast<int*>(globalData.bytes) = 0;
-  globalData.numBytes = 32;
+  globalData.numBytes                       = 32;
 
   ledRed.clear();
 
-  while (true)
+  for (;;)
   {
-    // if (rf24_2.enqueueData(globalData) == EXIT_SUCCESS)
-    // {
-    //   *reinterpret_cast<int*>(globalData.bytes) += 1;
-    // }
+    if (rf24_2.enqueueData(globalData) == EXIT_SUCCESS)
+    {
+      *reinterpret_cast<int*>(globalData.bytes) += 1;
+    }
 
-    // if (rf24_1_irq.get() == 0)
-    // {
-    //   rf24_1.notify();
-    // }
-
-    // if (rf24_2_irq.get() == 0)
-    // {
-    //   rf24_2.notify();
-    // }
-
-    // rf24_1.loop();
-    // rf24_2.loop();
+    rf24_1.loop();
+    rf24_2.loop();
   }
 }
