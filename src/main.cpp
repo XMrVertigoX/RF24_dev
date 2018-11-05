@@ -287,6 +287,9 @@ int main()
   globalData.numBytes = 32;
 
   ledRed.clear();
+  ledYellow.clear();
+  ledGreen.clear();
+  ledBlue.clear();
 
   for (;;)
   {
