@@ -15,6 +15,7 @@
 #include "support/gpio.hpp"
 #include "support/spi.hpp"
 
+// TODO: Is there an official solution?
 void* __dso_handle = nullptr;
 
 // static Gpio button(GPIOA, GPIO0);
@@ -204,16 +205,13 @@ static void rxCallback(nRF24_Datagram_t data, void* context)
 
   static int counter2 = 0;
 
-  if (*reinterpret_cast<int*>(data.bytes) == counter2)
-  {
-    ledRed.clear();
-    counter2++;
-  }
-  else
+  if (*reinterpret_cast<int*>(data.bytes) != counter2)
   {
     ledRed.set();
-    counter2 = *reinterpret_cast<int*>(data.bytes);
+    counter2 = *reinterpret_cast<int*>(data.bytes) + 1;
   }
+
+  counter2++;
 }
 
 static void txCallback(void* context)
@@ -246,6 +244,9 @@ int main()
 
   printf("Application\r\n");
 
+  rf24_1.init();
+  rf24_2.init();
+
   rf24_1.enterStandbyMode();
   rf24_2.enterStandbyMode();
 
@@ -256,12 +257,10 @@ int main()
     __asm__("nop");
   }
 
-  rf24_1.setup();
   rf24_1.setRxCallback(rxCallback, &rf24_1);
   rf24_1.setTxCallback(txCallback, &rf24_1);
   rf24_1.startListening();
 
-  rf24_2.setup();
   rf24_2.setRxCallback(rxCallback, &rf24_2);
   rf24_2.setTxCallback(txCallback, &rf24_2);
   rf24_2.startListening();
@@ -298,7 +297,7 @@ int main()
       *reinterpret_cast<int*>(globalData.bytes) += 1;
     }
 
-    rf24_1.loop();
-    rf24_2.loop();
+    rf24_1.process();
+    rf24_2.process();
   }
 }
