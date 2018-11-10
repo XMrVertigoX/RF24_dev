@@ -46,7 +46,7 @@ static Gpio rf24_2_irq(GPIOB, GPIO11);
 static Spi rf24_2_spi(SPI2, rf24_2_ss);
 static nRF24 rf24_2(rf24_2_spi, rf24_2_en);
 
-static nRF24_Datagram_t globalData;
+static uint32_t globalCounter = 0;
 
 static uint8_t defaultAddress = 0xE7;
 static uint32_t defaultBaseAddress = 0xE7E7E7E7;
@@ -73,7 +73,7 @@ static void spi_setup()
 
   // spi initialization;
   spi_set_master_mode(SPI2);
-  spi_set_baudrate_prescaler(SPI2, SPI_CR1_BR_FPCLK_DIV_64);
+  spi_set_baudrate_prescaler(SPI2, SPI_CR1_BR_FPCLK_DIV_2);
   spi_set_clock_polarity_0(SPI2);
   spi_set_clock_phase_0(SPI2);
   spi_set_full_duplex_mode(SPI2);
@@ -187,28 +187,30 @@ static void clock_setup()
   rcc_clock_setup_hsi(&rcc_hsi_configs[RCC_CLOCK_HSI_64MHZ]);
 }
 
-static void rxCallback(nRF24_Datagram_t data, void* context)
+static void rxCallback(uint8_t pipe, const void* bytes, size_t numBytes, void* context)
 {
   // nRF24* self = static_cast<nRF24*>(context);
 
   static int counter = 0;
 
-  if (counter++ % 100 == 0)
+  if (counter % 1000 == 0)
   {
     ledYellow.toggle();
   }
 
-  if (*reinterpret_cast<int*>(data.bytes) % 100 == 0)
+  counter++;
+
+  if (*reinterpret_cast<const int*>(bytes) % 1000 == 0)
   {
     ledGreen.toggle();
   }
 
   static int counter2 = 0;
 
-  if (*reinterpret_cast<int*>(data.bytes) != counter2)
+  if (*reinterpret_cast<const int*>(bytes) != counter2)
   {
     ledRed.set();
-    counter2 = *reinterpret_cast<int*>(data.bytes) + 1;
+    counter2 = *reinterpret_cast<const int*>(bytes) + 1;
   }
 
   counter2++;
@@ -220,7 +222,7 @@ static void txCallback(void* context)
 
   static int counter = 0;
 
-  if (counter++ % 100 == 0)
+  if (counter++ % 1000 == 0)
   {
     ledBlue.toggle();
   }
@@ -282,9 +284,6 @@ int main()
     __asm__("nop");
   }
 
-  *reinterpret_cast<int*>(globalData.bytes) = 0;
-  globalData.numBytes = 32;
-
   ledRed.clear();
   ledYellow.clear();
   ledGreen.clear();
@@ -292,9 +291,9 @@ int main()
 
   for (;;)
   {
-    if (rf24_2.enqueueData(globalData) == EXIT_SUCCESS)
+    if (rf24_2.enqueueData(&globalCounter, sizeof(globalCounter)) == sizeof(globalCounter))
     {
-      *reinterpret_cast<int*>(globalData.bytes) += 1;
+      globalCounter++;
     }
 
     rf24_1.process();

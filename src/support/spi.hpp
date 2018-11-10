@@ -10,7 +10,7 @@ public:
   Spi(uint32_t spi, IGpio& ss);
   virtual ~Spi();
 
-  uint8_t transceive(const uint8_t txBytes[], uint8_t rxBytes[], uint32_t numBytes);
+  uint8_t transceive(const void* txBytes, void* rxBytes, size_t numBytes);
 
 private:
   uint32_t _spi;
