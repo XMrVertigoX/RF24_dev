@@ -249,9 +249,6 @@ int main()
   rf24_1.init();
   rf24_2.init();
 
-  rf24_1.enterStandbyMode();
-  rf24_2.enterStandbyMode();
-
   ledYellow.set();
 
   for (int i = 0; i < 800000; i++)
@@ -259,13 +256,11 @@ int main()
     __asm__("nop");
   }
 
+  rf24_1.enableDynamicPayloadLength(0);
   rf24_1.setRxCallback(rxCallback, &rf24_1);
-  rf24_1.setTxCallback(txCallback, &rf24_1);
-  rf24_1.startListening();
 
-  rf24_2.setRxCallback(rxCallback, &rf24_2);
+  rf24_2.enableDynamicPayloadLength(0);
   rf24_2.setTxCallback(txCallback, &rf24_2);
-  rf24_2.startListening();
 
   ledGreen.set();
 
@@ -291,7 +286,7 @@ int main()
 
   for (;;)
   {
-    if (rf24_2.enqueueData(&globalCounter, sizeof(globalCounter)) == sizeof(globalCounter))
+    if (rf24_2.enqueueData(&globalCounter, 4) == 4)
     {
       globalCounter++;
     }
