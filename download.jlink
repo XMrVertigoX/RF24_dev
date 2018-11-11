@@ -1,5 +1,5 @@
 h
-loadbin nRF24_dev.bin, 0x0
+loadbin libnrf24l01_example.bin, 0x0
 r
 g
 q
