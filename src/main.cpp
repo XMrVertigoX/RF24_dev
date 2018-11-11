@@ -1,7 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <queue>
 
 #include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/exti.h>
@@ -47,7 +46,6 @@ static Spi rf24_2_spi(SPI2, rf24_2_ss);
 static nRF24 rf24_2(rf24_2_spi, rf24_2_en);
 
 static uint32_t globalCounter = 0;
-
 static uint8_t defaultAddress = 0xE7;
 static uint32_t defaultBaseAddress = 0xE7E7E7E7;
 
