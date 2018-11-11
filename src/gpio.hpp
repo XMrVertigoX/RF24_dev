@@ -3,9 +3,7 @@
 
 #include <cstdint>
 
-#include <libnrf24l01/igpio.hpp>
-
-class Gpio : public IGpio
+class Gpio
 {
 public:
   Gpio(uint32_t gpioport, uint16_t gpios);
@@ -13,7 +11,7 @@ public:
 
   void clear();
   int get();
-  void set(bool enable = true);
+  void set();
   void toggle();
 
 private:

@@ -2,35 +2,34 @@ DEVICE       := STM32F303VC
 OPENCM3_DIR  := lib/libopencm3
 PROJECT_NAME := libnrf24l01_example
 
-INCLUDE_DIRS := \
-	lib/libnrf24l01/inc
 SOURCE_FILES := \
 	$(wildcard src/*.cpp) \
-	$(wildcard src/support/*.cpp)
+	$(wildcard src/support/*.cpp) \
+	$(wildcard lib/libnrf24l01/src/adapter/*.cpp)
 OBJS := \
-	$(patsubst %.c,%.o,$(filter %.c,$(SOURCE_FILES))) \
 	$(patsubst %.cpp,%.o,$(filter %.cpp,$(SOURCE_FILES)))
 DEPS := \
-	$(patsubst %.c,%.d,$(filter %.c,$(SOURCE_FILES))) \
 	$(patsubst %.cpp,%.d,$(filter %.cpp,$(SOURCE_FILES)))
-LIBDEPS := lib/libnrf24l01/libnrf24l01.a
+INCLUDE_DIRS := \
+	lib/libnrf24l01/inc
+LIBDEPS := \
+	lib/libnrf24l01/libnrf24l01.a
 
 # -----
 
-CFLAGS       += -Os #-flto
+CFLAGS       += -Os
 CFLAGS       += -std=gnu17
 CFLAGS       += -ffunction-sections -fdata-sections
 
-CXXFLAGS     += -Os #-flto
+CXXFLAGS     += -Os
 CXXFLAGS     += -std=gnu++17
 CXXFLAGS     += -ffunction-sections -fdata-sections
 
 CPPFLAGS     += $(addprefix -I,$(INCLUDE_DIRS))
-CPPFLAGS     += -MD -MP
 
 LDFLAGS      += --specs=nosys.specs --specs=nano.specs
-LDFLAGS      += $(addprefix -L,$(dir $(LIBDEPS)))
 LDFLAGS      += -nostartfiles -static
+LDFLAGS      += $(addprefix -L,$(dir $(LIBDEPS)))
 LDFLAGS      += -Wl,--gc-sections
 
 LDLIBS       += -lnrf24l01 -lstdc++
