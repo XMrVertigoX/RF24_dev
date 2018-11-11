@@ -14,15 +14,15 @@ OBJS := \
 DEPS := \
 	$(patsubst %.c,%.d,$(filter %.c,$(SOURCE_FILES))) \
 	$(patsubst %.cpp,%.d,$(filter %.cpp,$(SOURCE_FILES)))
-# LIBDEPS      :=
+# LIBDEPS :=
 
 # -----
 
-CFLAGS       += -O3 #-flto
+CFLAGS       += -Os #-flto
 CFLAGS       += -std=gnu17
 CFLAGS       += -ffunction-sections -fdata-sections
 
-CXXFLAGS     += -O3 #-flto
+CXXFLAGS     += -Os #-flto
 CXXFLAGS     += -std=gnu++17
 CXXFLAGS     += -ffunction-sections -fdata-sections
 
