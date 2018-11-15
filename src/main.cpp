@@ -15,6 +15,8 @@
 
 #include "gpio.hpp"
 
+using namespace libnrf24l01;
+
 // TODO: Is there an official solution?
 void* __dso_handle = nullptr;
 
@@ -34,15 +36,15 @@ static Gpio ledGreen(GPIOE, (GPIO15 | GPIO11));
 static Gpio ledRed(GPIOE, (GPIO9 | GPIO13));
 static Gpio ledYellow(GPIOE, (GPIO10 | GPIO14));
 
-static libnrf24l01::Gpio_libopencm3 rf24_1_ss(GPIOB, GPIO12);
-static libnrf24l01::Gpio_libopencm3 rf24_1_en(GPIOF, GPIO2);
-static libnrf24l01::Spi_libopencm3 rf24_1_spi(SPI2, rf24_1_ss);
-static libnrf24l01::nRF24 rf24_1(rf24_1_spi, rf24_1_en);
+static Gpio_libopencm3 rf24_1_ss(GPIOB, GPIO12);
+static Gpio_libopencm3 rf24_1_en(GPIOF, GPIO2);
+static Spi_libopencm3 rf24_1_spi(SPI2, rf24_1_ss);
+static nRF24 rf24_1(rf24_1_spi, rf24_1_en);
 
-static libnrf24l01::Gpio_libopencm3 rf24_2_ss(GPIOD, GPIO15);
-static libnrf24l01::Gpio_libopencm3 rf24_2_en(GPIOD, GPIO13);
-static libnrf24l01::Spi_libopencm3 rf24_2_spi(SPI2, rf24_2_ss);
-static libnrf24l01::nRF24 rf24_2(rf24_2_spi, rf24_2_en);
+static Gpio_libopencm3 rf24_2_ss(GPIOD, GPIO15);
+static Gpio_libopencm3 rf24_2_en(GPIOD, GPIO13);
+static Spi_libopencm3 rf24_2_spi(SPI2, rf24_2_ss);
+static nRF24 rf24_2(rf24_2_spi, rf24_2_en);
 
 static uint32_t globalCounter = 0;
 static uint8_t defaultAddress = 0xE7;
